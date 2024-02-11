@@ -21,7 +21,7 @@ RPM.Manager.GL.load = async function()
 	json = await RPM.Common.IO.openFile(RPM.Manager.Plugins.getParameter(pluginName, "Shaders directory path") + RPM.Manager.Plugins.getParameter(pluginName, "Shader") + ".frag");
 	RPM.Manager.GL.SHADER_FACE_FRAGMENT = json;
 }
-
+/*
 RPM.Manager.GL.createMaterial = function(opts)
 {
 	if (!opts.texture) {
@@ -47,7 +47,7 @@ RPM.Manager.GL.createMaterial = function(opts)
 	// Program cache key for multiple shader programs
 	const key = fragment === RPM.Manager.GL.SHADER_FIX_FRAGMENT ? 0 : 1;
 	// Create material
-	const material = new THREE.MeshPhongMaterial(
+	const material = new THREE.MeshToonMaterial(
 	{
 		map: opts.texture,
 		side: opts.side,
@@ -65,14 +65,13 @@ RPM.Manager.GL.createMaterial = function(opts)
 	// Edit shader information before compiling shader
 	material.onBeforeCompile = (shader) =>
 	{
-		shader.fragmentShader = fragment;
-		shader.vertexShader = vertex;
+		//shader.fragmentShader = fragment;
+		//shader.vertexShader = vertex;
 		shader.uniforms.colorD = uniforms.colorD;
 		shader.uniforms.reverseH = { value: opts.flipX };
 		shader.uniforms.repeat = { value: opts.repeat };
 		shader.uniforms.offset = uniforms.offset;
 		shader.uniforms.enableShadows = { value: opts.shadows };
-		shader.uniforms.tex = opts.texture;
 		material.userData.uniforms = shader.uniforms;
 		// Important to run a unique shader only once and be able to use 
 		// multiple shader with before compile
@@ -82,7 +81,7 @@ RPM.Manager.GL.createMaterial = function(opts)
 	};
 	return material;
 }
-
+*/
 function enableCastShadows(mesh, enable)
 {
 	if (!mesh.isScene)
@@ -90,8 +89,8 @@ function enableCastShadows(mesh, enable)
 		mesh.castShadow = enable;
 		mesh.receiveShadow = enable;
 	}
-    for (var i = 0; i < mesh.children.length; i++)
-        enableCastShadows(mesh.children[i], enable);
+	for (var i = 0; i < mesh.children.length; i++)
+		enableCastShadows(mesh.children[i], enable);
 }
 
 function setDefaultShadowProperties(light)
@@ -191,13 +190,12 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, 
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x, y, z, intensity, color, radius, castShadow) =>
 {
-	console.log(prop, id, x, y, z, intensity, color, radius, castShadow);
 	const light = new THREE.PointLight(color.color, intensity);
-	//light.shadow.bias = -0.001;
-	//light.shadow.normalBias = 0.5;
-	light.shadow.camera.far = RPM.Datas.Systems.SQUARE_SIZE * 350;
-	//light.distance = 2 * radius * RPM.Datas.Systems.SQUARE_SIZE;
-	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, y * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
+	light.shadow.bias = -0.001;
+	light.shadow.normalBias = 0.5;
+//	light.shadow.camera.far = RPM.Datas.Systems.SQUARE_SIZE * 350;
+	light.distance = radius * RPM.Datas.Systems.SQUARE_SIZE;
+	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, (y + 0.5) * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
 	light.castShadow = castShadow;
 	for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
 		if (RPM.Scene.Map.current.scene.children[i].customDepthMaterial != null && !RPM.Scene.Map.current.scene.children[i].customDistanceMaterial)
@@ -206,9 +204,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 	{
 		if (!!result)
 		{
-			RPM.Scene.Map.current.scene.remove(result.object.mesh);
 			result.object.mesh.add(light);
-			RPM.Scene.Map.current.scene.add(result.object.mesh);
 			if (prop > 0)
 				RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
 			lightList.push(light);
