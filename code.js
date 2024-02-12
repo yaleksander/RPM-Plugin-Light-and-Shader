@@ -4,11 +4,19 @@ import { THREE } from "../../System/Globals.js";
 const pluginName = "Light";
 const inject = RPM.Manager.Plugins.inject;
 
-const shadowMapSize = Math.pow(2, RPM.Manager.Plugins.getParameter(pluginName, "Shadow quality"));
+const onLoadID = RPM.Manager.Plugins.getParameter(pluginName, "Map load event ID");
 
 var lightList = [];
-
 var mapID = 0;
+
+setInterval(function ()
+{
+	if (!!RPM.Scene.Map.current && !RPM.Scene.Map.current.loading)
+		for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
+			if (RPM.Scene.Map.current.scene.children[i].customDepthMaterial != null && !RPM.Scene.Map.current.scene.children[i].customDistanceMaterial)
+				RPM.Scene.Map.current.scene.children[i].customDistanceMaterial = new THREE.MeshDistanceMaterial({alphaTest: 0.5, map: RPM.Scene.Map.current.scene.children[i].customDepthMaterial.map});
+}, 48);
+
 setInterval(function ()
 {
 	if (!!RPM.Scene.Map.current && !RPM.Scene.Map.current.loading)
@@ -17,7 +25,7 @@ setInterval(function ()
 		{
 			lightList = [];
 			mapID = RPM.Scene.Map.current.id;
-			console.log("change map");
+			RPM.Manager.Events.sendEventDetection(null, -1, false, onLoadID, [null]);
 		}
 		for (var i = 0; i < lightList.length; i++)
 		{
@@ -45,16 +53,13 @@ setInterval(function ()
 
 RPM.Manager.GL.load = async function()
 {
-	// Shaders
-	var json;
-	json = await RPM.Common.IO.openFile(RPM.Manager.Plugins.getParameter(pluginName, "Shaders directory path") + RPM.Manager.Plugins.getParameter(pluginName, "Shader") + ".vert");
-	RPM.Manager.GL.SHADER_FIX_VERTEX = json;
-	json = await RPM.Common.IO.openFile(RPM.Manager.Plugins.getParameter(pluginName, "Shaders directory path") + RPM.Manager.Plugins.getParameter(pluginName, "Shader") + ".frag");
-	RPM.Manager.GL.SHADER_FIX_FRAGMENT = json;
-	json = await RPM.Common.IO.openFile(RPM.Manager.Plugins.getParameter(pluginName, "Shaders directory path") + RPM.Manager.Plugins.getParameter(pluginName, "Shader") + ".vert");
-	RPM.Manager.GL.SHADER_FACE_VERTEX = json;
-	json = await RPM.Common.IO.openFile(RPM.Manager.Plugins.getParameter(pluginName, "Shaders directory path") + RPM.Manager.Plugins.getParameter(pluginName, "Shader") + ".frag");
-	RPM.Manager.GL.SHADER_FACE_FRAGMENT = json;
+	const shader = RPM.Manager.Plugins.getParameter(pluginName, "Shaders directory path") + RPM.Manager.Plugins.getParameter(pluginName, "Shader");
+	const vert = await RPM.Common.IO.openFile(shader + ".vert");
+	const frag = await RPM.Common.IO.openFile(shader + ".frag");
+	RPM.Manager.GL.SHADER_FIX_VERTEX    = vert;
+	RPM.Manager.GL.SHADER_FIX_FRAGMENT  = frag;
+	RPM.Manager.GL.SHADER_FACE_VERTEX   = vert;
+	RPM.Manager.GL.SHADER_FACE_FRAGMENT = frag;
 }
 
 function enableCastShadows(mesh, enable)
@@ -78,36 +83,21 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Remove all lights", () =>
 	lightList = [];
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Remove default directional light", (prop) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Remove default directional light", () =>
 {
 	for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
 	{
 		if (RPM.Scene.Map.current.scene.children[i].isDirectionalLight && lightList.indexOf(RPM.Scene.Map.current.scene.children[i]) < 0)
 		{
-			if (prop > 0)
-				RPM.Core.ReactionInterpreter.currentObject.properties[prop] = RPM.Scene.Map.current.scene.children[i];
 			RPM.Scene.Map.current.scene.remove(RPM.Scene.Map.current.scene.children[i]);
 			break;
 		}
 	}
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Remove default ambient light", (prop) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Remove light", (prop) =>
 {
-	for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
-	{
-		if (RPM.Scene.Map.current.scene.children[i].isAmbientLight && lightList.indexOf(RPM.Scene.Map.current.scene.children[i]) < 0)
-		{
-			if (prop > 0)
-				RPM.Core.ReactionInterpreter.currentObject.properties[prop] = RPM.Scene.Map.current.scene.children[i];
-			RPM.Scene.Map.current.scene.remove(RPM.Scene.Map.current.scene.children[i]);
-			break;
-		}
-	}
-});
-
-RPM.Manager.Plugins.registerCommand(pluginName, "Remove light", (light) =>
-{
+	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (!!light)
 	{
 		lightList.splice(lightList.indexOf(light), 1);
@@ -116,18 +106,22 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Remove light", (light) =>
 	}
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Add ambient light", (prop, intensity, color) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Set ambient light", (intensity, color) =>
 {
-	const light = new THREE.AmbientLight(color, intensity);
-	if (prop > 0)
-		RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
-	RPM.Scene.Map.current.scene.add(light);
-	lightList.push(light);
+	for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
+	{
+		if (RPM.Scene.Map.current.scene.children[i].isAmbientLight && lightList.indexOf(RPM.Scene.Map.current.scene.children[i]) < 0)
+		{
+			RPM.Scene.Map.current.scene.children[i].intensity = intensity;
+			RPM.Scene.Map.current.scene.children[i].color = color.color;
+			break;
+		}
+	}
 });
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Add hemisphere light", (prop, intensity, colorTop, colorBottom) =>
 {
-	const light = new THREE.HemisphereLight(colorTop.color, colorBottom.color, intensity);
+	const light = new THREE.HemisphereLight(colorBottom.color, colorTop.color, intensity);
 	if (prop > 0)
 		RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
 	RPM.Scene.Map.current.scene.add(light);
@@ -156,11 +150,8 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 	light.shadow.bias = -0.001;
 	light.shadow.normalBias = 0.25;
 	light.distance = radius * RPM.Datas.Systems.SQUARE_SIZE;
-	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, (y + 0.5) * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
+	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, y * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
 	light.castShadow = castShadow;
-	for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
-		if (RPM.Scene.Map.current.scene.children[i].customDepthMaterial != null && !RPM.Scene.Map.current.scene.children[i].customDistanceMaterial)
-			RPM.Scene.Map.current.scene.children[i].customDistanceMaterial = new THREE.MeshDistanceMaterial({alphaTest: 0.5, map: RPM.Scene.Map.current.scene.children[i].customDepthMaterial.map});
 	RPM.Core.MapObject.search(id, (result) =>
 	{
 		if (!!result)
@@ -173,23 +164,22 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 	}, RPM.Core.ReactionInterpreter.currentObject);
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Add spotlight", (prop, id, offX, offY, offZ, dirX, dirY, dirZ, intensity, color, angle, castShadow) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Add spotlight", (prop, id, x, y, z, intensity, color, angle, distance, castShadow) =>
 {
 	const light = new THREE.SpotLight(color.color, intensity);
-	light.position.set(offX * RPM.Datas.Systems.SQUARE_SIZE, offY * RPM.Datas.Systems.SQUARE_SIZE, offZ * RPM.Datas.Systems.SQUARE_SIZE);
-	light.add(new THREE.Object3D());
-	light.target = light.children[0];
-	light.target.position.set(dirX, dirY, dirZ);
+	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, y * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
 	light.castShadow = castShadow;
 	light.angle = angle * Math.PI / 180.0;
-	light.shadow.bias = -0.000001;
-	light.shadow.normalBias = 0.25;
+	light.shadow.bias = -0.00001;
+	light.shadow.normalBias = 0.75;
 	light.penumbra = 1.0;
+	light.distance = distance * RPM.Datas.Systems.SQUARE_SIZE;
 	RPM.Core.MapObject.search(id, (result) =>
 	{
 		if (!!result)
 		{
 			result.object.mesh.add(light);
+			light.target = result.object.mesh;
 			if (prop > 0)
 				RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
 			lightList.push(light);
@@ -197,55 +187,50 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add spotlight", (prop, id, offX
 	}, RPM.Core.ReactionInterpreter.currentObject);
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Set light color", (light, color) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Set light color", (prop, color) =>
 {
-	light.color = new THREE.Color(color);
+	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	light.color = color.color;
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Set hemisphere light top color", (light, color) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Set hemisphere light colors", (prop, colorTop, colorBottom) =>
 {
+	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (!light.isHemisphereLight)
 		return;
-	light.skyColor = new THREE.Color(color);
+	light.skyColor = colorBottom.color;
+	light.groundColor = colorTop.color;
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Set hemisphere light bottom color", (light, color) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Set light intensity", (prop, intensity) =>
 {
-	if (!light.isHemisphereLight)
-		return;
-	light.groundColor = new THREE.Color(color);
-});
-
-RPM.Manager.Plugins.registerCommand(pluginName, "Set light intensity", (light, intensity) =>
-{
+	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	light.intensity = intensity;
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Set light cast shadow", (light, castShadow) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Set light cast shadow", (prop, castShadow) =>
 {
-	if (light.isAmbientLight || light.isHemisphereLight)
+	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	if (light.isHemisphereLight)
 		return;
 	light.castShadow = castShadow;
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Set light position", (light, x, y, z) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Set light position", (prop, x, y, z) =>
 {
-	if (light.isAmbientLight || light.isHemisphereLight)
+	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	if (light.isHemisphereLight)
 		return;
-	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, y * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
+	if (light.isDirectionalLight)
+		light.extraStuff.set(x, y, z);
+	else
+		light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, y * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Set light direction", (light, x, y, z) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Set spotlight target", (prop, id) =>
 {
-	if (!light.isDirectionalLight && !light.isSpotLight)
-		return;
-	light.target = light.children[0];
-	light.target.position.set();
-});
-
-RPM.Manager.Plugins.registerCommand(pluginName, "Set light target", (light, id) =>
-{
-	if (!light.isDirectionalLight && !light.isSpotLight)
+	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	if (!light.isSpotLight)
 		return;
 	RPM.Core.MapObject.search(id, (result) =>
 	{
@@ -254,8 +239,9 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set light target", (light, id) 
 	}, RPM.Core.ReactionInterpreter.currentObject);
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Set spotlight angle", (light, id) =>
+RPM.Manager.Plugins.registerCommand(pluginName, "Set spotlight angle", (prop, id) =>
 {
+	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (!light.isSpotLight)
 		return;
 	light.angle = angle * Math.PI / 180.0;
