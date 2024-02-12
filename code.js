@@ -8,6 +8,41 @@ const shadowMapSize = Math.pow(2, RPM.Manager.Plugins.getParameter(pluginName, "
 
 var lightList = [];
 
+var mapID = 0;
+setInterval(function ()
+{
+	if (!!RPM.Scene.Map.current && !RPM.Scene.Map.current.loading)
+	{
+		if (mapID != RPM.Scene.Map.current.id)
+		{
+			lightList = [];
+			mapID = RPM.Scene.Map.current.id;
+			console.log("change map");
+		}
+		for (var i = 0; i < lightList.length; i++)
+		{
+			if (lightList[i].isDirectionalLight)
+			{
+				const x = lightList[i].extraStuff.x;
+				const y = lightList[i].extraStuff.y;
+				const z = lightList[i].extraStuff.z;
+				lightList[i].target.position.copy(RPM.Scene.Map.current.camera.targetPosition);
+				lightList[i].target.updateMatrixWorld();
+				lightList[i].position.set(x, y, z).multiplyScalar(RPM.Datas.Systems.SQUARE_SIZE * 20).add(RPM.Scene.Map.current.camera.targetPosition);
+				const d = Math.max(RPM.Datas.Systems.SQUARE_SIZE * RPM.Scene.Map.current.camera.distance / 10, 400);
+				if (d !== lightList[i].shadow.camera.right)
+				{
+					lightList[i].shadow.camera.left = -d;
+					lightList[i].shadow.camera.right = d;
+					lightList[i].shadow.camera.top = d;
+					lightList[i].shadow.camera.bottom = -d;
+					lightList[i].shadow.camera.updateProjectionMatrix();
+				}
+			}
+		}
+	}
+}, 16);
+
 RPM.Manager.GL.load = async function()
 {
 	// Shaders
@@ -21,67 +56,7 @@ RPM.Manager.GL.load = async function()
 	json = await RPM.Common.IO.openFile(RPM.Manager.Plugins.getParameter(pluginName, "Shaders directory path") + RPM.Manager.Plugins.getParameter(pluginName, "Shader") + ".frag");
 	RPM.Manager.GL.SHADER_FACE_FRAGMENT = json;
 }
-/*
-RPM.Manager.GL.createMaterial = function(opts)
-{
-	if (!opts.texture) {
-		opts.texture = new THREE.Texture();
-	}
-	opts.texture.magFilter = THREE.NearestFilter;
-	opts.texture.minFilter = THREE.NearestFilter;
-	opts.texture.flipY = (opts.flipY) ? true : false;
-	opts.repeat = RPM.Common.Utils.defaultValue(opts.repeat, 1.0);
-	opts.opacity = RPM.Common.Utils.defaultValue(opts.opacity, 1.0);
-	opts.shadows = RPM.Common.Utils.defaultValue(opts.shadows, true);
-	opts.side = RPM.Common.Utils.defaultValue(opts.side, THREE.DoubleSide);
-	const vertex   = RPM.Manager.GL.SHADER_FIX_VERTEX;
-	const fragment = RPM.Manager.GL.SHADER_FIX_FRAGMENT;
-	const screenTone = RPM.Manager.GL.screenTone;
-	const uniforms = opts.uniforms ? opts.uniforms :
-	{
-		offset: { value: new THREE.Vector2() },
-		colorD: { value: screenTone },
-		repeat: { value: opts.repeat },
-		enableShadows: { value: opts.shadows }
-	};
-	// Program cache key for multiple shader programs
-	const key = fragment === RPM.Manager.GL.SHADER_FIX_FRAGMENT ? 0 : 1;
-	// Create material
-	const material = new THREE.MeshToonMaterial(
-	{
-		map: opts.texture,
-		side: opts.side,
-		transparent: true,
-		alphaTest: 0.5,
-		opacity: opts.opacity
-	});
-	material.userData.uniforms = uniforms;
-	material.userData.customDepthMaterial = new THREE.MeshDepthMaterial(
-	{
-		depthPacking: THREE.RGBADepthPacking,
-		map: opts.texture,
-		alphaTest: 0.5
-	});
-	// Edit shader information before compiling shader
-	material.onBeforeCompile = (shader) =>
-	{
-		//shader.fragmentShader = fragment;
-		//shader.vertexShader = vertex;
-		shader.uniforms.colorD = uniforms.colorD;
-		shader.uniforms.reverseH = { value: opts.flipX };
-		shader.uniforms.repeat = { value: opts.repeat };
-		shader.uniforms.offset = uniforms.offset;
-		shader.uniforms.enableShadows = { value: opts.shadows };
-		material.userData.uniforms = shader.uniforms;
-		// Important to run a unique shader only once and be able to use 
-		// multiple shader with before compile
-		material.customProgramCacheKey = () => {
-		return '' + key;
-		};
-	};
-	return material;
-}
-*/
+
 function enableCastShadows(mesh, enable)
 {
 	if (!mesh.isScene)
@@ -91,20 +66,6 @@ function enableCastShadows(mesh, enable)
 	}
 	for (var i = 0; i < mesh.children.length; i++)
 		enableCastShadows(mesh.children[i], enable);
-}
-
-function setDefaultShadowProperties(light)
-{
-	//RPM.Manager.GL.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-	const d = RPM.Datas.Systems.SQUARE_SIZE * 10;
-	light.shadow.mapSize.width  =  shadowMapSize;
-	light.shadow.mapSize.height =  shadowMapSize;
-	light.shadow.camera.left    = -d;
-	light.shadow.camera.right   =  d;
-	light.shadow.camera.top     =  d;
-	light.shadow.camera.bottom  = -d;
-	light.shadow.camera.far = RPM.Datas.Systems.SQUARE_SIZE * 350;
-	light.shadow.bias = -0.00001;
 }
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Remove all lights", () =>
@@ -166,7 +127,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add ambient light", (prop, inte
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Add hemisphere light", (prop, intensity, colorTop, colorBottom) =>
 {
-	const light = new THREE.HemisphereLight(colorTop, colorBottom, intensity);
+	const light = new THREE.HemisphereLight(colorTop.color, colorBottom.color, intensity);
 	if (prop > 0)
 		RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
 	RPM.Scene.Map.current.scene.add(light);
@@ -175,13 +136,14 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add hemisphere light", (prop, i
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, x, y, z, intensity, color, castShadow) =>
 {
-	const light = new THREE.DirectionalLight(color, intensity);
-	setDefaultShadowProperties(light);
-	light.add(new THREE.Object3D());
-	light.target = light.children[0];
-	light.position.set(0, 5 * RPM.Datas.Systems.SQUARE_SIZE, 0);
-	light.target.position.set(x, y, z);
+	const light = new THREE.DirectionalLight(color.color, intensity);
+	light.extraStuff = new THREE.Vector3(x, y, z).normalize();
 	light.castShadow = castShadow;
+	light.shadow.mapSize.width = 8192;
+	light.shadow.mapSize.height = 8192;
+	light.shadow.camera.far = RPM.Datas.Systems.SQUARE_SIZE * 350;
+	light.shadow.bias = -0.00002;
+	light.shadow.normalBias = 0.5;
 	if (prop > 0)
 		RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
 	RPM.Scene.Map.current.scene.add(light);
@@ -192,8 +154,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 {
 	const light = new THREE.PointLight(color.color, intensity);
 	light.shadow.bias = -0.001;
-	light.shadow.normalBias = 0.5;
-//	light.shadow.camera.far = RPM.Datas.Systems.SQUARE_SIZE * 350;
+	light.shadow.normalBias = 0.25;
 	light.distance = radius * RPM.Datas.Systems.SQUARE_SIZE;
 	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, (y + 0.5) * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
 	light.castShadow = castShadow;
@@ -214,16 +175,16 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Add spotlight", (prop, id, offX, offY, offZ, dirX, dirY, dirZ, intensity, color, angle, castShadow) =>
 {
-	const light = new THREE.SpotLight(color, intensity);
-	//setDefaultShadowProperties(light);
+	const light = new THREE.SpotLight(color.color, intensity);
 	light.position.set(offX * RPM.Datas.Systems.SQUARE_SIZE, offY * RPM.Datas.Systems.SQUARE_SIZE, offZ * RPM.Datas.Systems.SQUARE_SIZE);
 	light.add(new THREE.Object3D());
 	light.target = light.children[0];
 	light.target.position.set(dirX, dirY, dirZ);
 	light.castShadow = castShadow;
 	light.angle = angle * Math.PI / 180.0;
+	light.shadow.bias = -0.000001;
+	light.shadow.normalBias = 0.25;
 	light.penumbra = 1.0;
-	light.decay = 2.0;
 	RPM.Core.MapObject.search(id, (result) =>
 	{
 		if (!!result)
