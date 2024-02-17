@@ -5,6 +5,8 @@ const pluginName = "Light";
 const inject = RPM.Manager.Plugins.inject;
 
 const onLoadID = RPM.Manager.Plugins.getParameter(pluginName, "Map load event ID");
+const path     = RPM.Manager.Plugins.getParameter(pluginName, "Shaders directory path");
+const shader   = RPM.Manager.Plugins.getParameter(pluginName, "Shader");
 
 var lightList = [];
 var mapID = 0;
@@ -26,6 +28,16 @@ setInterval(function ()
 			lightList = [];
 			mapID = RPM.Scene.Map.current.id;
 			RPM.Manager.Events.sendEventDetection(null, -1, false, onLoadID, [null]);
+			for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
+			{
+				if (RPM.Scene.Map.current.scene.children[i].isDirectionalLight && lightList.indexOf(RPM.Scene.Map.current.scene.children[i]) < 0)
+				{
+					const light = RPM.Scene.Map.current.scene.children[i];
+					light.shadow.bias = -0.00002;
+					light.shadow.normalBias = 0.75;
+					break;
+				}
+			}
 		}
 		for (var i = 0; i < lightList.length; i++)
 		{
@@ -53,14 +65,13 @@ setInterval(function ()
 
 RPM.Manager.GL.load = async function()
 {
-	const shader = RPM.Manager.Plugins.getParameter(pluginName, "Shaders directory path") + RPM.Manager.Plugins.getParameter(pluginName, "Shader");
-	const vert = await RPM.Common.IO.openFile(shader + ".vert");
-	const frag = await RPM.Common.IO.openFile(shader + ".frag");
+	const vert = await RPM.Common.IO.openFile(path + shader + ".vert");
+	const frag = await RPM.Common.IO.openFile(path + shader + ".frag");
 	RPM.Manager.GL.SHADER_FIX_VERTEX    = vert;
 	RPM.Manager.GL.SHADER_FIX_FRAGMENT  = frag;
 	RPM.Manager.GL.SHADER_FACE_VERTEX   = vert;
 	RPM.Manager.GL.SHADER_FACE_FRAGMENT = frag;
-}
+};
 
 function enableCastShadows(mesh, enable)
 {
@@ -137,7 +148,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, 
 	light.shadow.mapSize.height = 8192;
 	light.shadow.camera.far = RPM.Datas.Systems.SQUARE_SIZE * 350;
 	light.shadow.bias = -0.00002;
-	light.shadow.normalBias = 0.5;
+	light.shadow.normalBias = 0.75;
 	if (prop > 0)
 		RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
 	RPM.Scene.Map.current.scene.add(light);
