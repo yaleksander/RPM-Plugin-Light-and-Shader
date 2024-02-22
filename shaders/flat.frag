@@ -16,8 +16,6 @@ uniform vec2 offset;
 uniform float repeat;
 uniform bool enableShadows;
 uniform sampler2D map;
-uniform vec3 specular;
-uniform float shininess;
 
 varying vec3 vNormal;
 varying vec3 fragPos;
@@ -118,7 +116,7 @@ vec4 getSpotLight(const in int i, const in float shadow)
 	vec3 dir = normalize(lightToFrag);
 	float att = getSpotAttenuation(spotLights[i].coneCos, spotLights[i].penumbraCos, dot(dir, spotLights[i].direction));
 	att *= getDistanceAttenuation(dist, spotLights[i].distance, spotLights[i].decay);
-	vec3 color = spotLights[i].color * flatten(att, 5) * shadow;
+	vec3 color = spotLights[i].color * flatten(att, 5) * (enableShadows ? shadow : 1.0);
 	vec3 irradiance = getGradientIrradiance(normalize(vNormal), dir) * color;
 	return vec4(irradiance * BRDF_Lambert(diffuse), 0.0);
 }
@@ -131,7 +129,7 @@ vec4 getPointLight(const in int i, const in float shadow)
 	float dist = length(lightToFrag);
 	vec3 dir = normalize(lightToFrag);
 	float att = getDistanceAttenuation(dist, pointLights[i].distance, pointLights[i].decay);
-	vec3 color = pointLights[i].color * flatten(att, 5) * shadow;
+	vec3 color = pointLights[i].color * flatten(att, 5) * (enableShadows ? shadow : 1.0);
 	vec3 irradiance = getGradientIrradiance(normalize(vNormal), dir) * color;
 	return vec4(irradiance * BRDF_Lambert(diffuse), 0.0);
 }

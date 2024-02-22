@@ -75,13 +75,19 @@ RPM.Manager.GL.load = async function()
 
 function enableCastShadows(mesh, enable)
 {
+	console.log(mesh);
 	if (!mesh.isScene)
-	{
 		mesh.castShadow = enable;
-		mesh.receiveShadow = enable;
-	}
 	for (var i = 0; i < mesh.children.length; i++)
 		enableCastShadows(mesh.children[i], enable);
+}
+
+function enableReceiveShadows(mesh, enable)
+{
+	if (!mesh.isScene)
+		mesh.receiveShadow = enable;
+	for (var i = 0; i < mesh.children.length; i++)
+		enableReceiveShadows(mesh.children[i], enable);
 }
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Remove all lights", () =>
@@ -209,6 +215,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set hemisphere light colors", (
 	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (!light.isHemisphereLight)
 		return;
+	// for some reason, they are reversed
 	light.skyColor = colorBottom.color;
 	light.groundColor = colorTop.color;
 });
@@ -225,6 +232,24 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set light cast shadow", (prop, 
 	if (light.isHemisphereLight)
 		return;
 	light.castShadow = castShadow;
+});
+
+RPM.Manager.Plugins.registerCommand(pluginName, "Set object cast shadow", (id, castShadow) =>
+{
+	RPM.Core.MapObject.search(id, (result) =>
+	{
+		if (!!result)
+			enableCastShadows(result.object.mesh, castShadow);
+	}, RPM.Core.ReactionInterpreter.currentObject);
+});
+
+RPM.Manager.Plugins.registerCommand(pluginName, "Set object receive shadow", (id, receiveShadow) =>
+{
+	RPM.Core.MapObject.search(id, (result) =>
+	{
+		if (!!result)
+			enableReceiveShadows(result.object.mesh, receiveShadow);
+	}, RPM.Core.ReactionInterpreter.currentObject);
 });
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Set light position", (prop, x, y, z) =>
