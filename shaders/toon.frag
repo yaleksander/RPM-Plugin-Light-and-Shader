@@ -148,10 +148,10 @@ void main()
 		vec4 tex = vColor;
 	#else
 		vec4 tex = texture2D(map, pos * repeat);
+		if (tex.a <= alpha_threshold)
+			discard;
 	#endif
 	tex.a *= opacity;
-	if (tex.a <= alpha_threshold)
-		discard;
 
 	#if NUM_DIR_LIGHT_SHADOWS > 0
 		float dirShadows[NUM_DIR_LIGHT_SHADOWS];
