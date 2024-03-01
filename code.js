@@ -4,30 +4,27 @@ import { THREE } from "../../System/Globals.js";
 const pluginName = "Light";
 const inject = RPM.Manager.Plugins.inject;
 
-const onLoadID = RPM.Manager.Plugins.getParameter(pluginName, "Map load event ID");
-const path	 = RPM.Manager.Plugins.getParameter(pluginName, "Shaders directory path");
-const shader   = RPM.Manager.Plugins.getParameter(pluginName, "Shader");
+const path = "./Content/Datas/Scripts/Plugins/Light/shaders/";
 
 var lightList = [];
 var mapID = 0;
 
 setInterval(function ()
 {
-	if (!!RPM.Scene.Map.current && !RPM.Scene.Map.current.loading)
+	if (RPM.Manager.Stack.top instanceof RPM.Scene.Map && !RPM.Scene.Map.current.loading)
 		for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
-			if (RPM.Scene.Map.current.scene.children[i].customDepthMaterial != null && !RPM.Scene.Map.current.scene.children[i].customDistanceMaterial)
+			if (!!RPM.Scene.Map.current.scene.children[i].customDepthMaterial && !RPM.Scene.Map.current.scene.children[i].customDistanceMaterial)
 				RPM.Scene.Map.current.scene.children[i].customDistanceMaterial = new THREE.MeshDistanceMaterial({alphaTest: 0.5, map: RPM.Scene.Map.current.scene.children[i].customDepthMaterial.map});
 }, 48);
 
 setInterval(function ()
 {
-	if (!!RPM.Scene.Map.current && !RPM.Scene.Map.current.loading)
+	if (RPM.Manager.Stack.top instanceof RPM.Scene.Map && !RPM.Scene.Map.current.loading)
 	{
 		if (mapID != RPM.Scene.Map.current.id)
 		{
 			lightList = [];
 			mapID = RPM.Scene.Map.current.id;
-			RPM.Manager.Events.sendEventDetection(null, -1, false, onLoadID, [null]);
 			for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
 			{
 				if (RPM.Scene.Map.current.scene.children[i].isDirectionalLight && lightList.indexOf(RPM.Scene.Map.current.scene.children[i]) < 0)
@@ -65,9 +62,9 @@ setInterval(function ()
 
 RPM.Manager.GL.load = async function()
 {
-	const vert = await RPM.Common.IO.openFile(path + shader + ".vert");
-	const frag = await RPM.Common.IO.openFile(path + shader + ".frag");
-	RPM.Manager.GL.SHADER_FIX_VERTEX    = vert;
+	const vert = await RPM.Common.IO.openFile(path + "toon.vert");
+	const frag = await RPM.Common.IO.openFile(path + "toon.frag");
+	RPM.Manager.GL.SHADER_FIX_VERTEX	= vert;
 	RPM.Manager.GL.SHADER_FIX_FRAGMENT  = frag;
 	RPM.Manager.GL.SHADER_FACE_VERTEX   = vert;
 	RPM.Manager.GL.SHADER_FACE_FRAGMENT = frag;
@@ -75,7 +72,6 @@ RPM.Manager.GL.load = async function()
 
 function enableCastShadows(mesh, enable)
 {
-	console.log(mesh);
 	if (!mesh.isScene)
 		mesh.castShadow = enable;
 	for (var i = 0; i < mesh.children.length; i++)
@@ -90,6 +86,17 @@ function enableReceiveShadows(mesh, enable)
 		enableReceiveShadows(mesh.children[i], enable);
 }
 
+RPM.Manager.Plugins.registerCommand(pluginName, "Get local lights", (startFrom) =>
+{
+	if (!RPM.Core.ReactionInterpreter.currentObject.mesh)
+		return;
+	const children = RPM.Core.ReactionInterpreter.currentObject.mesh.children;
+	const props = RPM.Core.ReactionInterpreter.currentObject.properties;
+	for (var i = 0; i < children.length; i++)
+		if (lightList.indexOf(children[i]) >= 0)
+			props[startFrom++] = children[i];
+});
+
 RPM.Manager.Plugins.registerCommand(pluginName, "Remove all lights", () =>
 {
 	for (var i = 0; i < lightList.length; i++)
@@ -102,11 +109,12 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Remove all lights", () =>
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Remove default directional light", () =>
 {
-	for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
+	const scene = RPM.Scene.Map.current.scene;
+	for (var i = 0; i < scene.children.length; i++)
 	{
-		if (RPM.Scene.Map.current.scene.children[i].isDirectionalLight && lightList.indexOf(RPM.Scene.Map.current.scene.children[i]) < 0)
+		if (scene.children[i].isDirectionalLight && lightList.indexOf(scene.children[i]) < 0)
 		{
-			RPM.Scene.Map.current.scene.remove(RPM.Scene.Map.current.scene.children[i]);
+			scene.remove(scene.children[i]);
 			break;
 		}
 	}
@@ -114,7 +122,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Remove default directional ligh
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Remove light", (prop) =>
 {
-	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	const light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (!!light)
 	{
 		lightList.splice(lightList.indexOf(light), 1);
@@ -125,19 +133,20 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Remove light", (prop) =>
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Enable/disable light", (prop, enabled) =>
 {
-	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	const light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (!!light)
 		light.visible = enabled;
 });
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Set ambient light", (intensity, color) =>
 {
-	for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
+	const scene = RPM.Scene.Map.current.scene;
+	for (var i = 0; i < scene.children.length; i++)
 	{
-		if (RPM.Scene.Map.current.scene.children[i].isAmbientLight && lightList.indexOf(RPM.Scene.Map.current.scene.children[i]) < 0)
+		if (scene.children[i].isAmbientLight && lightList.indexOf(scene.children[i]) < 0)
 		{
-			RPM.Scene.Map.current.scene.children[i].intensity = intensity;
-			RPM.Scene.Map.current.scene.children[i].color = color.color;
+			scene.children[i].intensity = intensity;
+			scene.children[i].color = color.color;
 			break;
 		}
 	}
@@ -180,6 +189,8 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 	{
 		if (!!result)
 		{
+			if (!result.object.mesh)
+				result.object.mesh = new THREE.Mesh();
 			result.object.mesh.add(light);
 			if (prop > 0)
 				RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
@@ -202,6 +213,8 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add spotlight", (prop, id, x, y
 	{
 		if (!!result)
 		{
+			if (!result.object.mesh)
+				result.object.mesh = new THREE.Mesh();
 			result.object.mesh.add(light);
 			light.target = result.object.mesh;
 			if (prop > 0)
@@ -213,13 +226,13 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add spotlight", (prop, id, x, y
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Set light color", (prop, color) =>
 {
-	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	const light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	light.color = color.color;
 });
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Set hemisphere light colors", (prop, colorTop, colorBottom) =>
 {
-	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	const light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (!light.isHemisphereLight)
 		return;
 	// for some reason, they are reversed
@@ -229,13 +242,13 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set hemisphere light colors", (
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Set light intensity", (prop, intensity) =>
 {
-	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	const light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	light.intensity = intensity;
 });
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Set light cast shadow", (prop, castShadow) =>
 {
-	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	const light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (light.isHemisphereLight)
 		return;
 	light.castShadow = castShadow;
@@ -261,7 +274,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set object receive shadow", (id
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Set light position", (prop, x, y, z) =>
 {
-	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	const light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (light.isHemisphereLight)
 		return;
 	if (light.isDirectionalLight)
@@ -272,7 +285,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set light position", (prop, x, 
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Set spotlight target", (prop, id) =>
 {
-	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	const light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (!light.isSpotLight)
 		return;
 	RPM.Core.MapObject.search(id, (result) =>
@@ -284,7 +297,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set spotlight target", (prop, i
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Set spotlight angle", (prop, id) =>
 {
-	var light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
+	const light = RPM.Core.ReactionInterpreter.currentObject.properties[prop];
 	if (!light.isSpotLight)
 		return;
 	light.angle = angle * Math.PI / 180.0;

@@ -6,6 +6,7 @@
 #include <shadowmap_pars_fragment>
 #include <uv_pars_fragment>
 #include <color_pars_fragment>
+#include <fog_pars_fragment>
 
 uniform vec3 diffuse;
 uniform vec3 emissive;
@@ -202,4 +203,5 @@ void main()
 	#endif
 
 	gl_FragColor *= tex;
+	#include <fog_fragment>
 }
