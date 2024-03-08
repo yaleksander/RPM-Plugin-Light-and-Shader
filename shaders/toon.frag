@@ -178,22 +178,41 @@ void main()
 			gl_FragColor += vec4(getHemisphereLightIrradiance(hemisphereLights[i], vNormal), 0.0);
 		#pragma unroll_loop_end
 	#endif
+	float shadow;
 	#if NUM_DIR_LIGHTS > 0
 		#pragma unroll_loop_start
 		for (int i = 0; i < NUM_DIR_LIGHTS; i++)
-			gl_FragColor += getDirLight(i, dirShadows[i]);
+		{
+			shadow = 1.0;
+			#if UNROLLED_LOOP_INDEX < NUM_DIR_LIGHT_SHADOWS
+				shadow = dirShadows[UNROLLED_LOOP_INDEX];
+			#endif
+			gl_FragColor += getDirLight(UNROLLED_LOOP_INDEX, shadow);
+		}
 		#pragma unroll_loop_end
 	#endif
 	#if NUM_SPOT_LIGHTS > 0
 		#pragma unroll_loop_start
 		for (int i = 0; i < NUM_SPOT_LIGHTS; i++)
-			gl_FragColor += getSpotLight(i, spotShadows[i]);
+		{
+			shadow = 1.0;
+			#if UNROLLED_LOOP_INDEX < NUM_SPOT_LIGHT_SHADOWS
+				shadow = spotShadows[UNROLLED_LOOP_INDEX];
+			#endif
+			gl_FragColor += getSpotLight(UNROLLED_LOOP_INDEX, shadow);
+		}
 		#pragma unroll_loop_end
 	#endif
 	#if NUM_POINT_LIGHTS > 0
 		#pragma unroll_loop_start
 		for (int i = 0; i < NUM_POINT_LIGHTS; i++)
-			gl_FragColor += getPointLight(i, pointShadows[i]);
+		{
+			shadow = 1.0;
+			#if UNROLLED_LOOP_INDEX < NUM_POINT_LIGHT_SHADOWS
+				shadow = pointShadows[UNROLLED_LOOP_INDEX];
+			#endif
+			gl_FragColor += getPointLight(UNROLLED_LOOP_INDEX, shadow);
+		}
 		#pragma unroll_loop_end
 	#endif
 

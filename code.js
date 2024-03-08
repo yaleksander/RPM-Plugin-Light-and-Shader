@@ -64,9 +64,9 @@ RPM.Manager.GL.load = async function()
 {
 	const vert = await RPM.Common.IO.openFile(path + "toon.vert");
 	const frag = await RPM.Common.IO.openFile(path + "toon.frag");
-	RPM.Manager.GL.SHADER_FIX_VERTEX	= vert;
-	RPM.Manager.GL.SHADER_FIX_FRAGMENT  = frag;
-	RPM.Manager.GL.SHADER_FACE_VERTEX   = vert;
+	RPM.Manager.GL.SHADER_FIX_VERTEX = vert;
+	RPM.Manager.GL.SHADER_FIX_FRAGMENT = frag;
+	RPM.Manager.GL.SHADER_FACE_VERTEX = vert;
 	RPM.Manager.GL.SHADER_FACE_FRAGMENT = frag;
 };
 
@@ -84,6 +84,18 @@ function enableReceiveShadows(mesh, enable)
 		mesh.receiveShadow = enable;
 	for (var i = 0; i < mesh.children.length; i++)
 		enableReceiveShadows(mesh.children[i], enable);
+}
+
+function limitDistance(value)
+{
+	const x = RPM.Scene.Map.current.mapProperties.length;
+	const y = RPM.Scene.Map.current.mapProperties.height + RPM.Scene.Map.current.mapProperties.depth;
+	const z = RPM.Scene.Map.current.mapProperties.width;
+	const h1 = Math.sqrt(x * x + z * z);
+	const h2 = Math.sqrt(h1 * h1 + y * y);
+	if (value === 0)
+		return h2 * RPM.Datas.Systems.SQUARE_SIZE;
+	return Math.min(value, h2 * RPM.Datas.Systems.SQUARE_SIZE);
 }
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Get local lights", (startFrom) =>
@@ -182,7 +194,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 	const light = new THREE.PointLight(color.color, intensity);
 	light.shadow.bias = -0.001;
 	light.shadow.normalBias = 0.25;
-	light.distance = radius * RPM.Datas.Systems.SQUARE_SIZE;
+	light.distance = limitDistance(radius * RPM.Datas.Systems.SQUARE_SIZE);
 	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, y * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
 	light.castShadow = castShadow;
 	RPM.Core.MapObject.search(id, (result) =>
@@ -208,7 +220,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add spotlight", (prop, id, x, y
 	light.shadow.bias = -0.00001;
 	light.shadow.normalBias = 0.75;
 	light.penumbra = 1.0;
-	light.distance = distance * RPM.Datas.Systems.SQUARE_SIZE;
+	light.distance = limitDistance(distance * RPM.Datas.Systems.SQUARE_SIZE);
 	RPM.Core.MapObject.search(id, (result) =>
 	{
 		if (!!result)
