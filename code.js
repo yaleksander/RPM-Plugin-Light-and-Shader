@@ -21,21 +21,6 @@ setInterval(function ()
 {
 	if (RPM.Manager.Stack.top instanceof RPM.Scene.Map && !RPM.Scene.Map.current.loading)
 	{
-		if (mapID != RPM.Scene.Map.current.id)
-		{
-			lightList = [];
-			mapID = RPM.Scene.Map.current.id;
-			for (var i = 0; i < RPM.Scene.Map.current.scene.children.length; i++)
-			{
-				if (RPM.Scene.Map.current.scene.children[i].isDirectionalLight && lightList.indexOf(RPM.Scene.Map.current.scene.children[i]) < 0)
-				{
-					const light = RPM.Scene.Map.current.scene.children[i];
-					light.shadow.bias = -0.00002;
-					light.shadow.normalBias = 0.75;
-					break;
-				}
-			}
-		}
 		for (var i = 0; i < lightList.length; i++)
 		{
 			if (lightList[i].isDirectionalLight)
@@ -46,7 +31,7 @@ setInterval(function ()
 				lightList[i].target.position.copy(RPM.Scene.Map.current.camera.targetPosition);
 				lightList[i].target.updateMatrixWorld();
 				lightList[i].position.set(x, y, z).multiplyScalar(RPM.Datas.Systems.SQUARE_SIZE * 20).add(RPM.Scene.Map.current.camera.targetPosition);
-				const d = Math.max(RPM.Datas.Systems.SQUARE_SIZE * RPM.Scene.Map.current.camera.distance / 10, 400);
+				const d = RPM.Scene.Map.current.camera.distance * 8;
 				if (d !== lightList[i].shadow.camera.right)
 				{
 					lightList[i].shadow.camera.left = -d;
@@ -58,7 +43,7 @@ setInterval(function ()
 			}
 		}
 	}
-}, 16);
+}, 48);
 
 RPM.Manager.GL.load = async function()
 {
@@ -68,6 +53,7 @@ RPM.Manager.GL.load = async function()
 	RPM.Manager.GL.SHADER_FIX_FRAGMENT = frag;
 	RPM.Manager.GL.SHADER_FACE_VERTEX = vert;
 	RPM.Manager.GL.SHADER_FACE_FRAGMENT = frag;
+	RPM.Manager.GL.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 };
 
 function enableCastShadows(mesh, enable)
@@ -173,7 +159,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add hemisphere light", (prop, i
 	lightList.push(light);
 });
 
-RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, x, y, z, intensity, color, castShadow) =>
+function addDirLight(prop, x, y, z, intensity, color, castShadow)
 {
 	const light = new THREE.DirectionalLight(color.color, intensity);
 	light.extraStuff = new THREE.Vector3(x, y, z).normalize();
@@ -182,18 +168,23 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, 
 	light.shadow.mapSize.height = 8192;
 	light.shadow.camera.far = RPM.Datas.Systems.SQUARE_SIZE * 350;
 	light.shadow.bias = -0.00002;
-	light.shadow.normalBias = 0.75;
+	light.shadow.normalBias = 0.5 * RPM.Datas.Systems.SQUARE_SIZE / 16;
 	if (prop > 0)
 		RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
 	RPM.Scene.Map.current.scene.add(light);
 	lightList.push(light);
+}
+
+RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, x, y, z, intensity, color, castShadow) =>
+{
+	addDirLight(prop, x, y, z, intensity, color, castShadow);
 });
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x, y, z, intensity, color, radius, castShadow) =>
 {
 	const light = new THREE.PointLight(color.color, intensity);
 	light.shadow.bias = -0.001;
-	light.shadow.normalBias = 0.25;
+	light.shadow.normalBias = 0.375 * RPM.Datas.Systems.SQUARE_SIZE / 16;
 	light.distance = limitDistance(radius * RPM.Datas.Systems.SQUARE_SIZE);
 	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, y * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
 	light.castShadow = castShadow;
@@ -217,8 +208,8 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add spotlight", (prop, id, x, y
 	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, y * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
 	light.castShadow = castShadow;
 	light.angle = angle * Math.PI / 180.0;
-	light.shadow.bias = -0.00001;
-	light.shadow.normalBias = 0.75;
+	light.shadow.bias = -0.0000005;
+	light.shadow.normalBias = 0.75 * RPM.Datas.Systems.SQUARE_SIZE / 16;
 	light.penumbra = 1.0;
 	light.distance = limitDistance(distance * RPM.Datas.Systems.SQUARE_SIZE);
 	RPM.Core.MapObject.search(id, (result) =>
