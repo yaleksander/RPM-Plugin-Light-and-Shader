@@ -99,7 +99,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Remove all lights", () =>
 {
 	for (var i = 0; i < lightList.length; i++)
 	{
-		RPM.Scene.Map.current.scene.remove(lightList[i]);
+		lightList[i].parent.remove(lightList[i]);
 		lightList[i].dispose();
 	}
 	lightList = [];
@@ -159,7 +159,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add hemisphere light", (prop, i
 	lightList.push(light);
 });
 
-function addDirLight(prop, x, y, z, intensity, color, castShadow)
+RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, x, y, z, intensity, color, castShadow) =>
 {
 	const light = new THREE.DirectionalLight(color.color, intensity);
 	light.extraStuff = new THREE.Vector3(x, y, z).normalize();
@@ -168,16 +168,11 @@ function addDirLight(prop, x, y, z, intensity, color, castShadow)
 	light.shadow.mapSize.height = 8192;
 	light.shadow.camera.far = RPM.Datas.Systems.SQUARE_SIZE * 350;
 	light.shadow.bias = -0.00002;
-	light.shadow.normalBias = 0.5 * RPM.Datas.Systems.SQUARE_SIZE / 16;
+	light.shadow.normalBias = 0.65 * RPM.Datas.Systems.SQUARE_SIZE / 16;
 	if (prop > 0)
 		RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
 	RPM.Scene.Map.current.scene.add(light);
 	lightList.push(light);
-}
-
-RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, x, y, z, intensity, color, castShadow) =>
-{
-	addDirLight(prop, x, y, z, intensity, color, castShadow);
 });
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x, y, z, intensity, color, radius, castShadow) =>
