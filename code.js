@@ -7,7 +7,6 @@ const inject = RPM.Manager.Plugins.inject;
 const path = RPM.Common.Paths.PLUGINS + pluginName + "/shaders/";
 
 var lightList = [];
-var mapID = 0;
 
 setInterval(function ()
 {
@@ -189,7 +188,10 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 		if (!!result)
 		{
 			if (!result.object.mesh)
+			{
 				result.object.mesh = new THREE.Mesh();
+				RPM.Scene.Map.current.scene.add(result.object.mesh);
+			}
 			result.object.mesh.add(light);
 			if (prop > 0)
 				RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
@@ -213,7 +215,10 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add spotlight", (prop, id, x, y
 		if (!!result)
 		{
 			if (!result.object.mesh)
+			{
 				result.object.mesh = new THREE.Mesh();
+				RPM.Scene.Map.current.scene.add(result.object.mesh);
+			}
 			result.object.mesh.add(light);
 			light.target = result.object.mesh;
 			if (prop > 0)
