@@ -173,7 +173,7 @@ void main()
 
 	#if NUM_HEMI_LIGHTS > 0
 		#pragma unroll_loop_start
-		for (int i = 0; i < NUM_DIR_LIGHTS; i++)
+		for (int i = 0; i < NUM_HEMI_LIGHTS; i++)
 			gl_FragColor += vec4(getHemisphereLightIrradiance(hemisphereLights[i], vNormal), 0.0);
 		#pragma unroll_loop_end
 	#endif
