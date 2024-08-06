@@ -25,16 +25,10 @@ varying vec3 fragPos;
 float flatten(in float value, in int layers)
 {
 	float threshold = 1.0 / float(layers);
-	float result = 1.0;
 	for (int i = 1; i < layers; i++)
-	{
 		if (value < float(i) * threshold)
-		{
-			result = float(i - 1) / float(layers - 1);
-			break;
-		}
-	}
-	return result;
+			return float(i - 1) / float(layers - 1);
+	return 1.0;
 }
 
 #if NUM_DIR_LIGHT_SHADOWS > 0
