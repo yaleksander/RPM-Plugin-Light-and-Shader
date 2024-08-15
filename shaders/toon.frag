@@ -137,12 +137,13 @@ void main()
 	vec2 coords = vec2(vUv.x + offset.x, vUv.y + offset.y);
 	vec2 pos = reverseH ? vec2(1.0 - coords.x, coords.y) : coords;
 	pos = vec2(pos.x - floor(pos.x), pos.y - floor(pos.y));
+	vec4 tex;
 	#if defined(USE_COLOR)
-		vec4 tex = vec4(vColor, 1.0);
+		tex = vec4(vColor, 1.0);
 	#elif defined(USE_COLOR_ALPHA)
-		vec4 tex = vColor;
+		tex = vColor;
 	#else
-		vec4 tex = texture2D(map, pos * repeat);
+		tex = texture2D(map, pos * repeat);
 		if (tex.a <= alpha_threshold)
 			discard;
 	#endif
