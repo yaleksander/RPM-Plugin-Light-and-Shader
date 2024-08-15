@@ -171,6 +171,7 @@ void main()
 			gl_FragColor += vec4(getHemisphereLightIrradiance(hemisphereLights[i], vNormal), 0.0);
 		#pragma unroll_loop_end
 	#endif
+
 	float shadow;
 	#if NUM_DIR_LIGHTS > 0
 		#pragma unroll_loop_start
