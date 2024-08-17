@@ -2,9 +2,9 @@ import { RPM } from "../path.js"
 import { THREE } from "../../System/Globals.js";
 
 const pluginName = "Light";
-const inject = RPM.Manager.Plugins.inject;
 
 const path = RPM.Common.Paths.PLUGINS + pluginName + "/shaders/";
+const rings = RPM.Manager.Plugins.getParameter(pluginName, "Number of light rings");
 
 var lightList = [];
 var lastMap = null;
@@ -59,8 +59,9 @@ setInterval(function ()
 
 RPM.Manager.GL.load = async function()
 {
-	const vert = await RPM.Common.IO.openFile(path + "toon.vert");
-	const frag = await RPM.Common.IO.openFile(path + "toon.frag");
+	var vert = await RPM.Common.IO.openFile(path + "toon.vert");
+	var frag = await RPM.Common.IO.openFile(path + "toon.frag");
+	frag = frag.replace("int numberOfRings = 5;", "int numberOfRings = " + rings.toString() + ";");
 	RPM.Manager.GL.SHADER_FIX_VERTEX = vert;
 	RPM.Manager.GL.SHADER_FIX_FRAGMENT = frag;
 	RPM.Manager.GL.SHADER_FACE_VERTEX = vert;
@@ -191,7 +192,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 {
 	const light = new THREE.PointLight(color.color, intensity, limitDistance(radius * RPM.Datas.Systems.SQUARE_SIZE));
 	light.shadow.bias = -0.001;
-	light.shadow.normalBias = 0.375 * RPM.Datas.Systems.SQUARE_SIZE / 16;
+	light.shadow.normalBias = 0.44 * RPM.Datas.Systems.SQUARE_SIZE / 16;
 	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, y * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
 	light.castShadow = castShadow;
 	RPM.Core.MapObject.search(id, (result) =>
