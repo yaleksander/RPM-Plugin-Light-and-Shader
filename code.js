@@ -42,8 +42,8 @@ setInterval(function ()
 				const z = lightList[i].extraStuff.z;
 				lightList[i].target.position.copy(RPM.Scene.Map.current.camera.targetPosition);
 				lightList[i].target.updateMatrixWorld();
-				lightList[i].position.set(x, y, z).multiplyScalar(RPM.Datas.Systems.SQUARE_SIZE * 20).add(RPM.Scene.Map.current.camera.targetPosition);
-				const d = RPM.Scene.Map.current.camera.distance * 8;
+				lightList[i].position.set(x, y, z).multiplyScalar(RPM.Datas.Systems.SQUARE_SIZE * 10).add(RPM.Scene.Map.current.camera.targetPosition);
+				const d = Math.max(RPM.Datas.Systems.SQUARE_SIZE * RPM.Scene.Map.current.camera.distance / 10, 400);
 				if (d !== lightList[i].shadow.camera.right)
 				{
 					lightList[i].shadow.camera.left = -d;
@@ -71,7 +71,7 @@ RPM.Manager.GL.load = async function()
 
 function enableCastShadows(mesh, enable)
 {
-	if (!mesh.isScene)
+	if (mesh.isMesh)
 		mesh.castShadow = enable;
 	for (var i = 0; i < mesh.children.length; i++)
 		enableCastShadows(mesh.children[i], enable);
@@ -177,8 +177,8 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, 
 	const light = new THREE.DirectionalLight(color.color, intensity);
 	light.extraStuff = new THREE.Vector3(x, y, z).normalize();
 	light.castShadow = castShadow;
-	light.shadow.mapSize.width = 8192;
-	light.shadow.mapSize.height = 8192;
+	light.shadow.mapSize.width = 2048;
+	light.shadow.mapSize.height = 2048;
 	light.shadow.camera.far = RPM.Datas.Systems.SQUARE_SIZE * 350;
 	light.shadow.bias = -0.00002;
 	light.shadow.normalBias = 0.65 * RPM.Datas.Systems.SQUARE_SIZE / 16;
@@ -306,8 +306,12 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set spotlight target", (prop, i
 		return;
 	RPM.Core.MapObject.search(id, (result) =>
 	{
-		if (!!result)
-			light.target = result.object.mesh;
+		if (!result.object.mesh)
+		{
+			result.object.mesh = new THREE.Mesh();
+			RPM.Scene.Map.current.scene.add(result.object.mesh);
+		}
+		light.target = result.object.mesh;
 	}, RPM.Core.ReactionInterpreter.currentObject);
 });
 
