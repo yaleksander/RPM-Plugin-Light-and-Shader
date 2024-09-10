@@ -40,10 +40,10 @@ setInterval(function ()
 				const x = lightList[i].extraStuff.x;
 				const y = lightList[i].extraStuff.y;
 				const z = lightList[i].extraStuff.z;
+				const d = Math.max(RPM.Datas.Systems.SQUARE_SIZE * RPM.Scene.Map.current.camera.distance / 10, 400);
 				lightList[i].target.position.copy(RPM.Scene.Map.current.camera.targetPosition);
 				lightList[i].target.updateMatrixWorld();
-				lightList[i].position.set(x, y, z).multiplyScalar(RPM.Datas.Systems.SQUARE_SIZE * 10).add(RPM.Scene.Map.current.camera.targetPosition);
-				const d = Math.max(RPM.Datas.Systems.SQUARE_SIZE * RPM.Scene.Map.current.camera.distance / 10, 400);
+				lightList[i].position.set(x, y, z).multiplyScalar(d / 2).add(RPM.Scene.Map.current.camera.targetPosition);
 				if (d !== lightList[i].shadow.camera.right)
 				{
 					lightList[i].shadow.camera.left = -d;
@@ -180,7 +180,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, 
 	light.shadow.mapSize.width = 2048;
 	light.shadow.mapSize.height = 2048;
 	light.shadow.camera.far = RPM.Datas.Systems.SQUARE_SIZE * 350;
-	light.shadow.bias = -0.00002;
+	light.shadow.bias = -0.0002;
 	light.shadow.normalBias = 0.65 * RPM.Datas.Systems.SQUARE_SIZE / 16;
 	if (prop > 0)
 		RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
