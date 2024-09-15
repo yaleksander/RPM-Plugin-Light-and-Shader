@@ -27,5 +27,9 @@ void main()
 	#include <fog_vertex>
 
 	vNormal = normal * inverse(normalMatrix);
-	fragPos = vec3(modelViewMatrix * vec4(position, 1.0));
+	#ifdef USE_INSTANCING
+		fragPos = vec3(modelViewMatrix * instanceMatrix * vec4(position, 1.0));
+	#else
+		fragPos = vec3(modelViewMatrix * vec4(position, 1.0));
+	#endif
 }

@@ -191,7 +191,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add directional light", (prop, 
 RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x, y, z, intensity, color, radius, castShadow) =>
 {
 	const light = new THREE.PointLight(color.color, intensity, limitDistance(radius * RPM.Datas.Systems.SQUARE_SIZE));
-	light.shadow.bias = -0.001;
+	light.shadow.bias = -0.0001;
 	light.shadow.normalBias = 0.44 * RPM.Datas.Systems.SQUARE_SIZE / 16;
 	light.position.set(x * RPM.Datas.Systems.SQUARE_SIZE, y * RPM.Datas.Systems.SQUARE_SIZE, z * RPM.Datas.Systems.SQUARE_SIZE);
 	light.castShadow = castShadow;
