@@ -1,4 +1,4 @@
-import { RPM } from "../path.js"
+import { RPM } from "../path.js";
 import { THREE } from "../../System/Globals.js";
 
 const pluginName = "Light";
