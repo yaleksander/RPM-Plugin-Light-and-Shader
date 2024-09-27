@@ -25,7 +25,7 @@ setInterval(function ()
 		{
 			for (var i = 0; i < lightList.length; i++)
 			{
-				if (!lightList[i].parent)
+				if (!lightList[i].parent || !lightList[i].parent.parent)
 				{
 					lightList[i].dispose();
 					lightList.splice(i, 1);
@@ -99,13 +99,30 @@ function limitDistance(value)
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Get local lights", (startFrom) =>
 {
-	if (!RPM.Core.ReactionInterpreter.currentObject.mesh)
+	const obj = RPM.Core.ReactionInterpreter.currentObject;
+	if (!obj.lightsPlugin_localLights)
 		return;
-	const children = RPM.Core.ReactionInterpreter.currentObject.mesh.children;
-	const props = RPM.Core.ReactionInterpreter.currentObject.properties;
+	const children = obj.lightsPlugin_localLights.children;
 	for (var i = 0; i < children.length; i++)
-		if (lightList.indexOf(children[i]) >= 0)
-			props[startFrom++] = children[i];
+		if (lightList.includes(children[i]))
+			obj.properties[startFrom++] = children[i];
+});
+
+RPM.Manager.Plugins.registerCommand(pluginName, "Reattach lights", () =>
+{
+	const obj = RPM.Core.ReactionInterpreter.currentObject;
+	if (!obj.lightsPlugin_localLights)
+		return;
+	if (!obj.mesh)
+	{
+		obj.mesh = new THREE.Mesh();
+		RPM.Scene.Map.current.scene.add(obj.mesh);
+	}
+	if (obj.lightsPlugin_localLights.parent !== obj.mesh)
+		obj.mesh.add(obj.lightsPlugin_localLights);
+	for (var i = 1; i < obj.properties.length; i++)
+		if (lightList.includes(obj.properties[i]) && obj.properties[i].parent !== obj.lightsPlugin_localLights)
+			obj.lightsPlugin_localLights.add(obj.properties[i]);
 });
 
 RPM.Manager.Plugins.registerCommand(pluginName, "Remove all lights", () =>
@@ -123,7 +140,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Remove default directional ligh
 	const scene = RPM.Scene.Map.current.scene;
 	for (var i = 0; i < scene.children.length; i++)
 	{
-		if (scene.children[i].isDirectionalLight && lightList.indexOf(scene.children[i]) < 0)
+		if (scene.children[i].isDirectionalLight && !lightList.includes(scene.children[i]))
 		{
 			scene.remove(scene.children[i]);
 			break;
@@ -154,7 +171,7 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set ambient light", (intensity,
 	const scene = RPM.Scene.Map.current.scene;
 	for (var i = 0; i < scene.children.length; i++)
 	{
-		if (scene.children[i].isAmbientLight && lightList.indexOf(scene.children[i]) < 0)
+		if (scene.children[i].isAmbientLight && !lightList.includes(scene.children[i]))
 		{
 			scene.children[i].intensity = intensity;
 			scene.children[i].color = color.color;
@@ -197,18 +214,21 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 	light.castShadow = castShadow;
 	RPM.Core.MapObject.search(id, (result) =>
 	{
-		if (!!result)
+		if (!result.object.mesh)
 		{
-			if (!result.object.mesh)
-			{
-				result.object.mesh = new THREE.Mesh();
-				RPM.Scene.Map.current.scene.add(result.object.mesh);
-			}
-			result.object.mesh.add(light);
-			if (prop > 0)
-				RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
-			lightList.push(light);
+			result.object.mesh = new THREE.Mesh();
+			RPM.Scene.Map.current.scene.add(result.object.mesh);
 		}
+		if (!result.object.lightsPlugin_localLights)
+		{
+			result.object.lightsPlugin_localLights = new THREE.Group();
+			result.object.lightsPlugin_localLights.lightsPlugin_isLightGroup = true;
+			result.object.mesh.add(result.object.lightsPlugin_localLights);
+		}
+		result.object.lightsPlugin_localLights.add(light);
+		if (prop > 0)
+			RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
+		lightList.push(light);
 	}, RPM.Core.ReactionInterpreter.currentObject);
 });
 
@@ -224,19 +244,28 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add spotlight", (prop, id, x, y
 	light.distance = limitDistance(distance * RPM.Datas.Systems.SQUARE_SIZE);
 	RPM.Core.MapObject.search(id, (result) =>
 	{
-		if (!!result)
+		if (!result.object.mesh)
 		{
-			if (!result.object.mesh)
-			{
-				result.object.mesh = new THREE.Mesh();
-				RPM.Scene.Map.current.scene.add(result.object.mesh);
-			}
-			result.object.mesh.add(light);
-			light.target = result.object.mesh;
-			if (prop > 0)
-				RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
-			lightList.push(light);
+			result.object.mesh = new THREE.Mesh();
+			RPM.Scene.Map.current.scene.add(result.object.mesh);
 		}
+		if (!result.object.lightsPlugin_localLights)
+		{
+			result.object.lightsPlugin_localLights = new THREE.Group();
+			result.object.lightsPlugin_localLights.lightsPlugin_isLightGroup = true;
+			result.object.mesh.add(result.object.lightsPlugin_localLights);
+		}
+		result.object.lightsPlugin_localLights.add(light);
+		if (!result.object.mesh.lightsPlugin_target)
+		{
+			const target = new THREE.Object3D();
+			result.object.mesh.lightsPlugin_target = target;
+			result.object.mesh.add(target);
+			light.target = target;
+		}
+		if (prop > 0)
+			RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
+		lightList.push(light);
 	}, RPM.Core.ReactionInterpreter.currentObject);
 });
 
@@ -311,7 +340,13 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Set spotlight target", (prop, i
 			result.object.mesh = new THREE.Mesh();
 			RPM.Scene.Map.current.scene.add(result.object.mesh);
 		}
-		light.target = result.object.mesh;
+		if (!result.object.mesh.lightsPlugin_target)
+		{
+			const target = new THREE.Object3D();
+			result.object.mesh.lightsPlugin_target = target;
+			result.object.mesh.add(target);
+			light.target = target;
+		}
 	}, RPM.Core.ReactionInterpreter.currentObject);
 });
 
