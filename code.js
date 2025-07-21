@@ -236,7 +236,6 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Add point light", (prop, id, x,
 		if (prop > 0)
 			RPM.Core.ReactionInterpreter.currentObject.properties[prop] = light;
 		lightList.push(light);
-		console.log(lightList);
 	}, RPM.Core.ReactionInterpreter.currentObject);
 });
 
